@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/1/upload",
-      "destination": "https://imgcdn.dev"
+      "destination": "https://imgcdn.dev/api/1/upload"
     }
   ]
 }
