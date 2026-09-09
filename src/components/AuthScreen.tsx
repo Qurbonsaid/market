@@ -58,18 +58,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 text-white select-none">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 text-white select-none">
       <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
         {/* App Logo & Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-slate-900 to-slate-800 ring-1 ring-white/10 shadow-lg mb-1">
+          <div className="inline-flex p-3 rounded-2xl bg-linear-to-tr from-slate-900 to-slate-800 ring-1 ring-white/10 shadow-lg mb-1">
             <img
               src="/favicon.svg"
               alt="Market Logosi"
               className="w-12 h-12 object-contain"
             />
           </div>
-          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-black tracking-tight bg-linear-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
             Market Boshqaruv
           </h1>
           <p className="text-xs text-slate-400">
@@ -221,7 +221,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           type="button"
           onClick={() => handleSubmit()}
           disabled={pin.length < 4}
-          className="w-full bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-rose-500/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-rose-500/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>Tizimga kirish</span>
           <ArrowRight className="w-4 h-4" />

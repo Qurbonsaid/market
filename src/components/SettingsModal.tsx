@@ -244,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             ) : (
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold py-3 rounded-2xl text-sm shadow-md shadow-rose-500/25 transition active:scale-95"
+                className="w-full bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold py-3 rounded-2xl text-sm shadow-md shadow-rose-500/25 transition active:scale-95"
               >
                 Sozlamalarni saqlash
               </button>
