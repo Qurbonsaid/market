@@ -60,6 +60,37 @@ export default defineConfig([
       reactX.configs['recommended-typescript'],
       // Enable lint rules for React DOM
       reactDom.configs.recommended,
+    # Market ERP
+
+    Production-ready inventory, point-of-sale, debt, and staff management app built with React, TypeScript, Vite, and Firebase Firestore.
+
+    ## Configure
+
+    Create a `.env.local` file before running the app:
+
+    ```env
+    VITE_FIREBASE_API_KEY=your-api-key
+    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+    VITE_FIREBASE_PROJECT_ID=your-project-id
+    VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+    VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+    VITE_FIREBASE_APP_ID=your-app-id
+    VITE_IMGCDN_API_KEY=your-imgcdn-api-key
+    VITE_IMGCDN_ENDPOINT=https://imgcdn.dev/api/1/upload
+    ```
+
+    Create the `staff`, `inventory`, `sales`, and `debts` collections in Firestore. Add the first active staff user to `staff` manually before the first login. No demo or seeded records are included.
+
+    Configure Firebase Authentication or equivalent server-side access controls before exposing the app publicly. Firestore security rules must restrict staff, inventory, sales, and debt access to authorized users.
+
+    ## Commands
+
+    ```bash
+    npm install
+    npm run dev
+    npm run build
+    npm run lint
+    ```
     ],
     languageOptions: {
       parserOptions: {
