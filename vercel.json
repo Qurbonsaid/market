@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/1/upload",
+      "destination": "https://imgcdn.dev"
+    }
+  ]
+}
