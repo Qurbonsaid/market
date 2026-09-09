@@ -5,7 +5,6 @@ import {
   Wallet,
   BarChart3,
   Users,
-  Settings,
   Download,
   LogOut,
   ShieldCheck,
@@ -20,7 +19,6 @@ interface HeaderProps {
   activeTab: ActiveNavTab;
   onSelectTab: (tab: ActiveNavTab) => void;
   onOpenStaffModal: () => void;
-  onOpenSettingsModal: () => void;
   onLogout: () => void;
   installPrompt: BeforeInstallPromptEvent | null;
   onInstallApp: () => void;
@@ -33,7 +31,6 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onSelectTab,
   onOpenStaffModal,
-  onOpenSettingsModal,
   onLogout,
   installPrompt,
   onInstallApp,
@@ -153,15 +150,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* Settings (Firebase & ImgCDN) */}
-              <button
-                onClick={onOpenSettingsModal}
-                className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition active:scale-95"
-                title="Sozlamalar"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-
               {/* User Profile Badge */}
               <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-800/90 border border-slate-700/80 rounded-2xl py-1 px-2">
                 <div
@@ -177,7 +165,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <UserCheck className="w-3.5 h-3.5" />
                   )}
                 </div>
-                <div className="text-left max-w-[85px] sm:max-w-[120px] truncate">
+                <div className="text-left max-w-21.25 sm:max-w-30 truncate">
                   <div className="text-[11px] sm:text-xs font-bold text-white leading-tight truncate">
                     {currentUser.name}
                   </div>
@@ -211,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectTab(item.id)}
-                className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer min-w-[56px] ${
+                className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer min-w-14 ${
                   isActive
                     ? "text-rose-400 font-bold"
                     : "text-slate-400 hover:text-slate-200 font-medium"

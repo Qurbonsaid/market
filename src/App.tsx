@@ -6,7 +6,6 @@ import { WarehouseView } from "./components/WarehouseView";
 import { DebtsView } from "./components/DebtsView";
 import { DashboardView } from "./components/DashboardView";
 import { StaffManagementModal } from "./components/StaffManagementModal";
-import { SettingsModal } from "./components/SettingsModal";
 import PWABadge from "./PWABadge";
 import {
   fetchStaffList,
@@ -51,7 +50,6 @@ export default function App() {
 
   // Modals
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // PWA Install Prompt
   const [installPrompt, setInstallPrompt] =
@@ -264,7 +262,6 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={(tab) => setActiveTab(tab)}
         onOpenStaffModal={() => setIsStaffModalOpen(true)}
-        onOpenSettingsModal={() => setIsSettingsOpen(true)}
         onLogout={handleLogout}
         installPrompt={installPrompt}
         onInstallApp={handleInstallApp}
@@ -318,14 +315,6 @@ export default function App() {
           onClose={() => setIsStaffModalOpen(false)}
           onSaveStaff={handleSaveStaff}
           onDeleteStaff={handleDeleteStaff}
-        />
-      )}
-
-      {/* Settings Modal (Firebase Firestore & ImgCDN) */}
-      {isSettingsOpen && (
-        <SettingsModal
-          onClose={() => setIsSettingsOpen(false)}
-          onRefreshData={loadData}
         />
       )}
 

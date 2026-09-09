@@ -9,6 +9,7 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
+  Edit2,
 } from "lucide-react";
 import type { StaffUser, UserRole } from "../types";
 
@@ -294,10 +295,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                         <Phone className="w-3 h-3 text-slate-400" />
                         {st.phone}
                       </span>
-                      <span>•</span>
-                      <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">
-                        PIN: {st.pin}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -308,7 +305,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                     onClick={() => handleOpenEdit(st)}
                     className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 font-semibold text-slate-700 text-xs transition"
                   >
-                    Tahrirlash
+                    <Edit2 className="w-3.5 h-3.5 inline-block mr-1" />
                   </button>
                   {st.id !== "staff-admin" && (
                     <button
