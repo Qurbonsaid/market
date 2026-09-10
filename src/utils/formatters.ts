@@ -1,6 +1,14 @@
+export function roundMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export function formatPrice(price: number, currency = "so'm"): string {
-  if (isNaN(price)) return `0 ${currency}`;
-  const formatted = price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const rounded = roundMoney(price);
+  const formatted = rounded
+    .toFixed(2)
+    .replace(/\.00$/, "")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   return `${formatted} ${currency}`;
 }
 
@@ -27,8 +35,18 @@ export function formatDate(timestamp: number): string {
   }
 
   const monthsUz = [
-    "yanvar", "fevral", "mart", "aprel", "may", "iyun",
-    "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"
+    "yanvar",
+    "fevral",
+    "mart",
+    "aprel",
+    "may",
+    "iyun",
+    "iyul",
+    "avgust",
+    "sentabr",
+    "oktabr",
+    "noyabr",
+    "dekabr",
   ];
   return `${date.getDate()}-${monthsUz[date.getMonth()]}, ${date.getFullYear()}`;
 }
@@ -54,6 +72,9 @@ export function formatPhoneNumber(phone: string): string {
 
 export function getTelegramLink(username: string): string {
   if (!username) return "";
-  const clean = username.replace(/^@/, "").replace(/^https?:\/\/t\.me\//, "").trim();
+  const clean = username
+    .replace(/^@/, "")
+    .replace(/^https?:\/\/t\.me\//, "")
+    .trim();
   return `https://t.me/${clean}`;
 }

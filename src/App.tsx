@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Header, type ActiveNavTab } from "./components/Header";
+import {
+  Header,
+  type ActiveNavTab,
+  type ActiveSubApp,
+} from "./components/Header";
+import { PaynetView } from "./components/PaynetView";
 import { AuthScreen } from "./components/AuthScreen";
 import { SalesPOSView } from "./components/SalesPOSView";
 import { WarehouseView } from "./components/WarehouseView";
@@ -17,21 +22,27 @@ import {
   fetchInventory,
   fetchSales,
   fetchDebts,
+  fetchPaynetConfig,
+  fetchPaynetTransactions,
   saveInventoryProduct,
   restockProduct,
   updateProductPrice,
   deleteInventoryProduct,
   recordSale,
+  recordPaynetTransaction,
+  savePaynetConfig,
   payDebt,
   saveStaffUser,
   provisionStaffUser,
   deleteStaffUser,
   type NewSalePayload,
+  type NewPaynetTransactionPayload,
 } from "./services/firestoreService";
 import { getFirebaseAuth } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   hasTerminalPin,
+  clearAllTerminalPins,
   isTerminalLocked,
   setTerminalLocked,
 } from "./services/terminalPinService";
@@ -40,9 +51,16 @@ import type {
   InventoryProduct,
   Sale,
   DebtRecord,
+  PaynetConfig,
+  PaynetTransaction,
   BeforeInstallPromptEvent,
 } from "./types";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import {
+  notifyLowStockProducts,
+  notifyPaynetBalance,
+  setupPushNotifications,
+} from "./services/pushNotifications";
 
 export default function App() {
   const [currentUser, setCurrentUserState] = useState<StaffUser | null>(null);
@@ -51,11 +69,23 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
+  const [paynetConfig, setPaynetConfig] = useState<PaynetConfig>({
+    balance: 0,
+    balanceAlertLimit: 0,
+    priceOffLimit: 0,
+    serviceFeePercentage: 0,
+    categories: [],
+  });
+  const [paynetTransactions, setPaynetTransactions] = useState<
+    PaynetTransaction[]
+  >([]);
+  const [pushReady, setPushReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
 
   // Active view tab
   const [activeTab, setActiveTab] = useState<ActiveNavTab>("pos");
+  const [activeSubApp, setActiveSubApp] = useState<ActiveSubApp>("market");
 
   // Modals
   const [isTerminalLockedState, setIsTerminalLockedState] = useState(false);
@@ -83,6 +113,36 @@ export default function App() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    setPushReady(false);
+    let unsubscribe: () => void = () => undefined;
+    void setupPushNotifications(currentUser.id, (title, body) => {
+      showToast(`${title}: ${body}`);
+    })
+      .then((cleanup) => {
+        unsubscribe = cleanup;
+        setPushReady(true);
+      })
+      .catch((error) => {
+        console.warn("Push bildirishnomalari sozlanmadi:", error);
+      });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || loading || !pushReady) return;
+    notifyLowStockProducts(inventory);
+    notifyPaynetBalance(paynetConfig.balance, paynetConfig.balanceAlertLimit);
+  }, [
+    currentUser,
+    inventory,
+    loading,
+    paynetConfig.balance,
+    paynetConfig.balanceAlertLimit,
+    pushReady,
+  ]);
+
   const handleInstallApp = async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
@@ -97,16 +157,27 @@ export default function App() {
     setLoading(true);
     setDataError(null);
     try {
-      const [staffData, invData, salesData, debtsData] = await Promise.all([
+      const [
+        staffData,
+        invData,
+        salesData,
+        debtsData,
+        paynetConfigData,
+        paynetTransactionsData,
+      ] = await Promise.all([
         fetchStaffList(),
         fetchInventory(),
         fetchSales(),
         fetchDebts(),
+        fetchPaynetConfig(),
+        fetchPaynetTransactions(),
       ]);
       setStaffList(staffData);
       setInventory(invData);
       setSales(salesData);
       setDebts(debtsData);
+      setPaynetConfig(paynetConfigData);
+      setPaynetTransactions(paynetTransactionsData);
     } catch (err) {
       const message =
         err instanceof Error
@@ -153,6 +224,7 @@ export default function App() {
 
   // Login handler
   const handleLogin = async (user: StaffUser) => {
+    clearAllTerminalPins();
     setCurrentUserState(user);
     persistCurrentUser(user);
     await loadData();
@@ -219,6 +291,28 @@ export default function App() {
     setSales(salesUpdated);
     setDebts(debtsUpdated);
     showToast("Savdo muvaffaqiyatli yakunlandi!");
+  };
+
+  const handlePaynetTransaction = async (
+    payload: NewPaynetTransactionPayload,
+  ) => {
+    await recordPaynetTransaction(payload, paynetConfig);
+    const [configUpdated, transactionsUpdated, debtsUpdated] =
+      await Promise.all([
+        fetchPaynetConfig(),
+        fetchPaynetTransactions(),
+        fetchDebts(),
+      ]);
+    setPaynetConfig(configUpdated);
+    setPaynetTransactions(transactionsUpdated);
+    setDebts(debtsUpdated);
+    showToast("Paynet operatsiyasi saqlandi!");
+  };
+
+  const handleSavePaynetConfig = async (config: PaynetConfig) => {
+    await savePaynetConfig(config);
+    setPaynetConfig(config);
+    showToast("Paynet sozlamalari saqlandi!");
   };
 
   // Debt Action
@@ -318,6 +412,11 @@ export default function App() {
         onInstallApp={handleInstallApp}
         lowStockCount={lowStockCount}
         unpaidDebtCount={unpaidDebtCount}
+        activeSubApp={activeSubApp}
+        onSelectSubApp={(subApp) => {
+          setActiveSubApp(subApp);
+          setActiveTab("pos");
+        }}
       />
 
       {/* Main Content Area */}
@@ -330,16 +429,29 @@ export default function App() {
             onLock={handleLock}
           />
         )}
-        {activeTab === "staff" && currentUser.role === "admin" && (
-          <StaffManagementModal
-            staffList={staffList}
-            onClose={() => setActiveTab("pos")}
-            onSaveStaff={handleSaveStaff}
-            onCreateStaff={handleCreateStaff}
-            onDeleteStaff={handleDeleteStaff}
+        {activeSubApp === "paynet" && activeTab !== "profile" && (
+          <PaynetView
+            currentUser={currentUser}
+            config={paynetConfig}
+            transactions={paynetTransactions}
+            debts={debts}
+            onSubmit={handlePaynetTransaction}
+            onSaveConfig={handleSavePaynetConfig}
+            onPayDebt={handlePayDebt}
           />
         )}
-        {activeTab === "pos" && (
+        {activeSubApp === "market" &&
+          activeTab === "staff" &&
+          currentUser.role === "admin" && (
+            <StaffManagementModal
+              staffList={staffList}
+              onClose={() => setActiveTab("pos")}
+              onSaveStaff={handleSaveStaff}
+              onCreateStaff={handleCreateStaff}
+              onDeleteStaff={handleDeleteStaff}
+            />
+          )}
+        {activeSubApp === "market" && activeTab === "pos" && (
           <SalesPOSView
             inventory={inventory}
             currentUser={currentUser}
@@ -347,7 +459,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "warehouse" && (
+        {activeSubApp === "market" && activeTab === "warehouse" && (
           <WarehouseView
             inventory={inventory}
             isAdmin={currentUser.role === "admin"}
@@ -358,7 +470,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "debts" && (
+        {activeSubApp === "market" && activeTab === "debts" && (
           <DebtsView
             debts={debts}
             currentUser={currentUser}
@@ -366,7 +478,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "dashboard" && (
+        {activeSubApp === "market" && activeTab === "dashboard" && (
           <DashboardView
             currentUser={currentUser}
             sales={sales}

@@ -75,6 +75,7 @@ export default defineConfig([
     VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
     VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
     VITE_FIREBASE_APP_ID=your-app-id
+    VITE_FCM_VAPID_KEY=your-web-push-certificate-key
     VITE_IMGCDN_API_KEY=your-imgcdn-api-key
     VITE_IMGCDN_ENDPOINT=https://imgcdn.dev/api/1/upload
     ```

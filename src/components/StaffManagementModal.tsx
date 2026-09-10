@@ -37,6 +37,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   const [phone, setPhone] = useState("+998");
   const [role, setRole] = useState<UserRole>("staff");
   const [isActive, setIsActive] = useState(true);
+  const [canAccessPaynet, setCanAccessPaynet] = useState(false);
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     setPhone(st.phone);
     setRole(st.role);
     setIsActive(st.isActive);
+    setCanAccessPaynet(st.canAccessPaynet === true);
     setPassword("");
     setError(null);
   };
@@ -60,6 +62,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     setPhone("");
     setRole("staff");
     setIsActive(true);
+    setCanAccessPaynet(false);
     setPassword("");
     setError(null);
   };
@@ -79,6 +82,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
         phone,
         role,
         isActive,
+        canAccessPaynet: role === "admin" || canAccessPaynet,
       };
 
       if (editingId) {
@@ -244,6 +248,17 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                     <option value="inactive">Bloklangan</option>
                   </select>
                 </div>
+
+                <label className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={role === "admin" || canAccessPaynet}
+                    disabled={role === "admin"}
+                    onChange={(e) => setCanAccessPaynet(e.target.checked)}
+                    className="accent-emerald-600"
+                  />
+                  Paynet Terminalga ruxsat
+                </label>
               </div>
 
               <div className="pt-2 flex justify-end">

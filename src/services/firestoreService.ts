@@ -23,7 +23,15 @@ import {
   getFirestoreDB,
   isFirebaseConfigured,
 } from "./firebase";
-import type { StaffUser, InventoryProduct, Sale, DebtRecord } from "../types";
+import type {
+  StaffUser,
+  InventoryProduct,
+  Sale,
+  DebtRecord,
+  PaynetConfig,
+  PaynetTransaction,
+} from "../types";
+import { formatPrice, roundMoney } from "../utils/formatters";
 
 const KEYS = {
   CURRENT_USER: "market_erp_current_user",
@@ -199,6 +207,170 @@ export async function deleteStaffUser(id: string): Promise<void> {
   await deleteDoc(doc(requireFirestore(), "staff", id));
 }
 
+const defaultPaynetConfig: PaynetConfig = {
+  balance: 0,
+  balanceAlertLimit: 0,
+  priceOffLimit: 0,
+  serviceFeePercentage: 0,
+  categories: ["Mobil Aloqa", "Kartani to'ldirish", "Davlat Xizmatlari"],
+};
+
+export async function fetchPaynetConfig(): Promise<PaynetConfig> {
+  const snapshot = await getDoc(
+    doc(requireFirestore(), "settings", "paynet_config"),
+  );
+  if (!snapshot.exists()) return defaultPaynetConfig;
+  const data = snapshot.data();
+  return {
+    balance: roundMoney(Number(data.balance) || 0),
+    balanceAlertLimit: roundMoney(Number(data.balanceAlertLimit) || 0),
+    priceOffLimit: roundMoney(Number(data.priceOffLimit) || 0),
+    serviceFeePercentage: roundMoney(Number(data.serviceFeePercentage) || 0),
+    categories: Array.isArray(data.categories)
+      ? data.categories.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : defaultPaynetConfig.categories,
+  };
+}
+
+export async function savePaynetConfig(config: PaynetConfig): Promise<void> {
+  await setDoc(doc(requireFirestore(), "settings", "paynet_config"), {
+    balance: roundMoney(config.balance),
+    balanceAlertLimit: roundMoney(config.balanceAlertLimit),
+    priceOffLimit: roundMoney(config.priceOffLimit),
+    serviceFeePercentage: roundMoney(config.serviceFeePercentage),
+    categories: config.categories.filter(Boolean),
+  });
+}
+
+export async function saveNotificationToken(
+  userId: string,
+  token: string,
+): Promise<void> {
+  await setDoc(
+    doc(requireFirestore(), "notificationTokens", encodeURIComponent(token)),
+    {
+      userId,
+      token,
+      platform: "web",
+      updatedAt: Date.now(),
+    },
+  );
+}
+
+export async function fetchPaynetTransactions(): Promise<PaynetTransaction[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(requireFirestore(), "paynetTransactions"),
+      orderBy("createdAt", "desc"),
+    ),
+  );
+  return snapshot.docs.map((item) => item.data() as PaynetTransaction);
+}
+
+export interface NewPaynetTransactionPayload {
+  category: string;
+  target: string;
+  amount: number;
+  staffId: string;
+  staffName: string;
+  paymentType: "naqd" | "nasiya";
+  customerName?: string;
+  customerPhone?: string;
+  debtDueDate?: number;
+  debtNotes?: string;
+  debtPaidNow?: number;
+  serviceFeePercentage?: number;
+}
+
+export async function recordPaynetTransaction(
+  payload: NewPaynetTransactionPayload,
+  config: PaynetConfig,
+): Promise<PaynetTransaction> {
+  const db = requireFirestore();
+  const now = Date.now();
+  const amount = roundMoney(payload.amount);
+  const requestedFee = payload.serviceFeePercentage;
+  if (requestedFee !== undefined) {
+    if (amount <= config.priceOffLimit) {
+      throw new Error(
+        `Chegirmali xizmat haqi faqat ${formatPrice(config.priceOffLimit)} dan yuqori summalarda ishlaydi.`,
+      );
+    }
+    if (requestedFee < 0 || requestedFee >= config.serviceFeePercentage) {
+      throw new Error(
+        "Chegirmali xizmat haqi asosiy foizdan past bo'lishi kerak.",
+      );
+    }
+  }
+  const serviceFeePercentage = roundMoney(
+    requestedFee ?? config.serviceFeePercentage,
+  );
+  const fee = roundMoney((amount * serviceFeePercentage) / 100);
+  const totalAmount = roundMoney(amount + fee);
+  const balanceAfter = roundMoney(config.balance - amount);
+  const transaction: PaynetTransaction = {
+    id: `paynet-${now}`,
+    category: payload.category,
+    target: payload.target,
+    amount,
+    fee,
+    serviceFeePercentage,
+    totalAmount,
+    balanceAfter,
+    staffId: payload.staffId,
+    staffName: payload.staffName,
+    createdAt: now,
+    paymentType: payload.paymentType,
+  };
+  const batch = writeBatch(db);
+  batch.set(doc(db, "paynetTransactions", transaction.id), transaction);
+  batch.set(doc(db, "settings", "paynet_config"), {
+    ...config,
+    priceOffLimit: roundMoney(config.priceOffLimit),
+    balance: balanceAfter,
+  });
+  if (payload.paymentType === "nasiya") {
+    if (!payload.customerName?.trim())
+      throw new Error("Nasiya uchun mijoz ismini kiriting.");
+    const paidNow = roundMoney(payload.debtPaidNow || 0);
+    if (paidNow < 0 || paidNow > totalAmount) {
+      throw new Error("Boshlang'ich to'lov jami summadan oshmasligi kerak.");
+    }
+    const remainingAmount = roundMoney(totalAmount - paidNow);
+    const debt: DebtRecord = {
+      id: `debt-paynet-${now}`,
+      customerName: payload.customerName.trim(),
+      customerPhone: payload.customerPhone?.trim() || "",
+      totalAmount,
+      paidAmount: paidNow,
+      remainingAmount,
+      status: remainingAmount === 0 ? "yopildi" : "kutilmoqda",
+      staffId: payload.staffId,
+      staffName: payload.staffName,
+      createdAt: now,
+      notes: payload.debtNotes?.trim() || "",
+      paymentHistory:
+        paidNow > 0
+          ? [
+              {
+                id: `pay-${now}`,
+                amount: paidNow,
+                date: now,
+                staffName: payload.staffName,
+              },
+            ]
+          : [],
+      origin: "paynet",
+    };
+    if (payload.debtDueDate) debt.dueDate = payload.debtDueDate;
+    batch.set(doc(db, "debts", debt.id), debt);
+  }
+  await batch.commit();
+  return transaction;
+}
+
 // ----------------------------------------------------------------------
 // 2. WAREHOUSE / INVENTORY OPERATIONS
 // ----------------------------------------------------------------------
@@ -288,15 +460,13 @@ export interface NewSalePayload {
 export async function recordSale(payload: NewSalePayload): Promise<Sale> {
   const db = requireFirestore();
   const now = Date.now();
-  const totalAmount = payload.items.reduce(
-    (acc, it) => acc + it.sellingPrice * it.quantity,
-    0,
+  const totalAmount = roundMoney(
+    payload.items.reduce((acc, it) => acc + it.sellingPrice * it.quantity, 0),
   );
-  const totalCost = payload.items.reduce(
-    (acc, it) => acc + it.costPrice * it.quantity,
-    0,
+  const totalCost = roundMoney(
+    payload.items.reduce((acc, it) => acc + it.costPrice * it.quantity, 0),
   );
-  const totalProfit = totalAmount - totalCost;
+  const totalProfit = roundMoney(totalAmount - totalCost);
 
   const sale: Sale = {
     id: "sale-" + now,
@@ -334,8 +504,8 @@ export async function recordSale(payload: NewSalePayload): Promise<Sale> {
 
   let debt: DebtRecord | null = null;
   if (payload.paymentType === "nasiya" && payload.customerName) {
-    const paidNow = payload.debtPaidNow || 0;
-    const remaining = Math.max(0, totalAmount - paidNow);
+    const paidNow = roundMoney(payload.debtPaidNow || 0);
+    const remaining = roundMoney(Math.max(0, totalAmount - paidNow));
     debt = {
       id: "debt-" + now,
       saleId: sale.id,
@@ -400,8 +570,10 @@ export async function payDebt(
   if (!debt) return;
 
   const updatedDebt = { ...debt };
-  const newPaid = updatedDebt.paidAmount + amount;
-  const newRemaining = Math.max(0, updatedDebt.totalAmount - newPaid);
+  const newPaid = roundMoney(updatedDebt.paidAmount + amount);
+  const newRemaining = roundMoney(
+    Math.max(0, updatedDebt.totalAmount - newPaid),
+  );
 
   updatedDebt.paidAmount = newPaid;
   updatedDebt.remainingAmount = newRemaining;
@@ -410,7 +582,7 @@ export async function payDebt(
     ...(updatedDebt.paymentHistory || []),
     {
       id: "pay-" + Date.now(),
-      amount,
+      amount: roundMoney(amount),
       date: Date.now(),
       staffName,
     },

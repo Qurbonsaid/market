@@ -45,6 +45,15 @@ export function clearTerminalPin(uid: string): void {
   localStorage.removeItem(storageKey(uid));
 }
 
+export function clearAllTerminalPins(): void {
+  const keysToRemove: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(TERMINAL_PIN_PREFIX)) keysToRemove.push(key);
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+}
+
 export function isTerminalLocked(): boolean {
   return localStorage.getItem(TERMINAL_LOCK_KEY) === "true";
 }

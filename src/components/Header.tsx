@@ -7,6 +7,8 @@ import {
   Users,
   Download,
   LockKeyhole,
+  ChevronDown,
+  Smartphone,
 } from "lucide-react";
 import type { StaffUser, BeforeInstallPromptEvent } from "../types";
 
@@ -17,6 +19,7 @@ export type ActiveNavTab =
   | "dashboard"
   | "profile"
   | "staff";
+export type ActiveSubApp = "market" | "paynet";
 
 interface HeaderProps {
   currentUser: StaffUser;
@@ -29,6 +32,8 @@ interface HeaderProps {
   onInstallApp: () => void;
   lowStockCount: number;
   unpaidDebtCount: number;
+  activeSubApp: ActiveSubApp;
+  onSelectSubApp: (subApp: ActiveSubApp) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,8 +47,12 @@ export const Header: React.FC<HeaderProps> = ({
   onInstallApp,
   lowStockCount,
   unpaidDebtCount,
+  activeSubApp,
+  onSelectSubApp,
 }) => {
   const isAdmin = currentUser.role === "admin";
+  const isSwitcherAvailable = true;
+  const [isSwitcherOpen, setIsSwitcherOpen] = React.useState(false);
 
   const navItems = [
     {
@@ -83,64 +92,119 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-2.5">
           <div className="flex items-center justify-between gap-2 sm:gap-3">
             {/* Logo & Brand */}
-            <div className="flex items-center gap-2 select-none">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-linear-to-tr from-slate-950 to-slate-800 p-1 ring-1 ring-white/10 shadow-md shrink-0">
-                <img
-                  src="/favicon.svg"
-                  alt="Market Logosi"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <div className="text-base sm:text-lg font-black tracking-tight leading-none bg-linear-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
-                  Market ERP
+            <div className="relative">
+              <button
+                type="button"
+                disabled={!isSwitcherAvailable}
+                onClick={() =>
+                  isSwitcherAvailable && setIsSwitcherOpen((open) => !open)
+                }
+                className="flex items-center gap-2 select-none text-left disabled:cursor-default"
+                aria-expanded={isSwitcherOpen}
+                aria-haspopup="menu"
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-linear-to-tr from-slate-950 to-slate-800 p-1 ring-1 ring-white/10 shadow-md shrink-0">
+                  <img
+                    src="/favicon.svg"
+                    alt="Market Logosi"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium tracking-wider uppercase">
-                  {isAdmin ? "Admin Paneli" : "Sotuvchi Paneli"}
-                </span>
-              </div>
+                <div>
+                  <div className="text-base sm:text-lg font-black tracking-tight leading-none bg-linear-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
+                    {activeSubApp === "paynet"
+                      ? "Paynet Terminal"
+                      : "Market ERP"}
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium tracking-wider uppercase">
+                    {activeSubApp === "paynet"
+                      ? "Paynet Xizmati"
+                      : isAdmin
+                        ? "Admin Paneli"
+                        : "Sotuvchi Paneli"}
+                  </span>
+                </div>
+                {isSwitcherAvailable && (
+                  <ChevronDown
+                    className={`w-4 h-4 text-slate-400 transition-transform ${isSwitcherOpen ? "rotate-180" : ""}`}
+                  />
+                )}
+              </button>
+              {isSwitcherAvailable && isSwitcherOpen && (
+                <div
+                  className="absolute left-0 top-full mt-2 z-50 w-52 rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-2xl"
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectSubApp("market");
+                      setIsSwitcherOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-left ${activeSubApp === "market" ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-800"}`}
+                    role="menuitem"
+                  >
+                    <ShoppingCart className="w-4 h-4 text-orange-400" /> Market
+                    ERP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectSubApp("paynet");
+                      setIsSwitcherOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-left ${activeSubApp === "paynet" ? "bg-emerald-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}
+                    role="menuitem"
+                  >
+                    <Smartphone className="w-4 h-4 text-emerald-300" /> Paynet
+                    Terminal
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Desktop Navigation Tabs (Hidden on Mobile) */}
-            <nav className="hidden md:flex items-center gap-1 bg-slate-800/80 p-1 rounded-2xl border border-slate-700/60">
-              {navItems.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onSelectTab(item.id)}
-                    className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-linear-to-r from-rose-500 to-orange-500 text-white shadow-xs shadow-rose-500/25"
-                        : "text-slate-300 hover:text-white hover:bg-slate-700/60"
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.fullLabel}</span>
-                    {item.badge !== undefined && (
-                      <span
-                        className={`text-[10px] text-white font-black px-1.5 py-0.2 rounded-full ${item.badgeColor}`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            {activeSubApp === "market" && (
+              <nav className="hidden md:flex items-center gap-1 bg-slate-800/80 p-1 rounded-2xl border border-slate-700/60">
+                {navItems.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onSelectTab(item.id)}
+                      className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-linear-to-r from-rose-500 to-orange-500 text-white shadow-xs shadow-rose-500/25"
+                          : "text-slate-300 hover:text-white hover:bg-slate-700/60"
+                      }`}
+                    >
+                      {item.icon}
+                      <span>{item.fullLabel}</span>
+                      {item.badge !== undefined && (
+                        <span
+                          className={`text-[10px] text-white font-black px-1.5 py-0.2 rounded-full ${item.badgeColor}`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
 
-              {/* Admin only: Xodimlar boshqaruvi */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={onOpenStaffModal}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-300 hover:text-white hover:bg-rose-500/20 transition cursor-pointer"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Xodimlar</span>
-                </button>
-              )}
-            </nav>
+                {/* Admin only: Xodimlar boshqaruvi */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={onOpenStaffModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-300 hover:text-white hover:bg-rose-500/20 transition cursor-pointer"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Xodimlar</span>
+                  </button>
+                )}
+              </nav>
+            )}
 
             {/* Right Action Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -179,51 +243,55 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
 
       {/* NATIVE MOBILE BOTTOM NAVIGATION BAR (Thumb-friendly for Mobile) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 px-1 py-1.5 shadow-2xl safe-area-bottom">
-        <div className="flex items-center justify-around">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
+      {activeSubApp === "market" && (
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 px-1 py-1.5 shadow-2xl safe-area-bottom">
+          <div className="flex items-center justify-around">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectTab(item.id)}
+                  className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer min-w-14 ${
+                    isActive
+                      ? "text-rose-400 font-bold"
+                      : "text-slate-400 hover:text-slate-200 font-medium"
+                  }`}
+                >
+                  <div className="relative">
+                    {item.icon}
+                    {item.badge !== undefined && (
+                      <span
+                        className={`absolute -top-1.5 -right-2 text-[9px] text-white font-black px-1.5 py-0.2 rounded-full ${item.badgeColor}`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] mt-1 tracking-tight">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Admin only: Xodimlar button in Mobile bottom bar */}
+            {isAdmin && (
               <button
-                key={item.id}
                 type="button"
-                onClick={() => onSelectTab(item.id)}
-                className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer min-w-14 ${
-                  isActive
-                    ? "text-rose-400 font-bold"
-                    : "text-slate-400 hover:text-slate-200 font-medium"
-                }`}
+                onClick={onOpenStaffModal}
+                className="relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-rose-300 font-medium transition cursor-pointer min-w-14"
               >
-                <div className="relative">
-                  {item.icon}
-                  {item.badge !== undefined && (
-                    <span
-                      className={`absolute -top-1.5 -right-2 text-[9px] text-white font-black px-1.5 py-0.2 rounded-full ${item.badgeColor}`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
+                <Users className="w-5 h-5" />
                 <span className="text-[10px] mt-1 tracking-tight">
-                  {item.label}
+                  Xodimlar
                 </span>
               </button>
-            );
-          })}
-
-          {/* Admin only: Xodimlar button in Mobile bottom bar */}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={onOpenStaffModal}
-              className="relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-rose-300 font-medium transition cursor-pointer min-w-14"
-            >
-              <Users className="w-5 h-5" />
-              <span className="text-[10px] mt-1 tracking-tight">Xodimlar</span>
-            </button>
-          )}
-        </div>
-      </nav>
+            )}
+          </div>
+        </nav>
+      )}
     </>
   );
 };

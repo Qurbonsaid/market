@@ -6,6 +6,7 @@ export interface StaffUser {
   phone: string;
   role: UserRole;
   isActive: boolean;
+  canAccessPaynet?: boolean;
   createdAt: number;
 }
 
@@ -74,6 +75,30 @@ export interface DebtRecord {
   createdAt: number;
   notes?: string;
   paymentHistory: DebtPaymentHistory[];
+  origin?: "market" | "paynet";
+}
+
+export interface PaynetConfig {
+  balance: number;
+  balanceAlertLimit: number;
+  priceOffLimit: number;
+  serviceFeePercentage: number;
+  categories: string[];
+}
+
+export interface PaynetTransaction {
+  id: string;
+  category: string;
+  target: string;
+  amount: number;
+  fee: number;
+  serviceFeePercentage?: number;
+  totalAmount: number;
+  balanceAfter?: number;
+  staffId: string;
+  staffName: string;
+  createdAt: number;
+  paymentType: "naqd" | "nasiya";
 }
 
 export interface BeforeInstallPromptEvent extends Event {
