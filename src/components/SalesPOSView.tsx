@@ -16,6 +16,7 @@ import {
   Receipt,
   X,
   ArrowRight,
+  ScanLine,
 } from "lucide-react";
 import type {
   InventoryProduct,
@@ -25,6 +26,7 @@ import type {
 } from "../types";
 import { formatPrice } from "../utils/formatters";
 import type { NewSalePayload } from "../services/firestoreService";
+import { BarcodeScannerModal } from "./BarcodeScannerModal";
 
 interface SalesPOSViewProps {
   inventory: InventoryProduct[];
@@ -39,6 +41,7 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Barchasi");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Cart
   const [cart, setCart] = useState<SaleItem[]>([]);
@@ -162,6 +165,13 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
     0,
   );
   const totalProfit = totalAmount - totalCost;
+  const priceAdjustment = cart.reduce((acc, item) => {
+    const originalProduct = inventory.find(
+      (product) => product.id === item.productId,
+    );
+    const originalPrice = originalProduct?.sellingPrice ?? item.sellingPrice;
+    return acc + (item.sellingPrice - originalPrice) * item.quantity;
+  }, 0);
   const totalItemsCount = cart.reduce((acc, it) => acc + it.quantity, 0);
 
   // Submit sale
@@ -320,12 +330,26 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
               {totalItemsCount} dona
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Foyda:</span>
-            <span className="font-bold text-emerald-600">
-              +{formatPrice(totalProfit)}
-            </span>
-          </div>
+          {currentUser.role === "admin" ? (
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Foyda:</span>
+              <span className="font-bold text-emerald-600">
+                +{formatPrice(totalProfit)}
+              </span>
+            </div>
+          ) : (
+            priceAdjustment !== 0 && (
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>Foyda/Zarar:</span>
+                <span
+                  className={`font-bold ${priceAdjustment > 0 ? "text-emerald-600" : "text-rose-600"}`}
+                >
+                  {priceAdjustment > 0 ? "+" : ""}
+                  {formatPrice(priceAdjustment)}
+                </span>
+              </div>
+            )
+          )}
           <div className="flex items-center justify-between text-sm sm:text-base font-black text-slate-900 pt-1">
             <span>Jami summa:</span>
             <span className="text-lg sm:text-xl text-rose-600">
@@ -504,8 +528,16 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
                 placeholder="Mahsulot nomi yoki shtrix-kod..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-800 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-2xl pl-10 pr-11 py-2.5 text-xs sm:text-sm text-slate-800 outline-none transition"
               />
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                title="Shtrix-kodni skanerlash"
+              >
+                <ScanLine className="h-4 w-4" />
+              </button>
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
@@ -693,6 +725,16 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {isScannerOpen && (
+        <BarcodeScannerModal
+          onClose={() => setIsScannerOpen(false)}
+          onResult={(value) => {
+            setSearch(value);
+            setIsScannerOpen(false);
+          }}
+        />
       )}
     </div>
   );

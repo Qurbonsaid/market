@@ -12,13 +12,16 @@ import {
   TrendingUp,
   Layers,
   Coins,
+  ScanLine,
 } from "lucide-react";
 import type { InventoryProduct, ProductUnit } from "../types";
 import { formatPrice } from "../utils/formatters";
 import { ImageUploader } from "./ImageUploader";
+import { BarcodeScannerModal } from "./BarcodeScannerModal";
 
 interface WarehouseViewProps {
   inventory: InventoryProduct[];
+  isAdmin: boolean;
   onSaveProduct: (product: InventoryProduct) => Promise<void>;
   onRestock: (
     productId: string,
@@ -31,6 +34,7 @@ interface WarehouseViewProps {
 
 export const WarehouseView: React.FC<WarehouseViewProps> = ({
   inventory,
+  isAdmin,
   onSaveProduct,
   onRestock,
   onUpdatePrice,
@@ -38,6 +42,9 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Barchasi");
+  const [scannerTarget, setScannerTarget] = useState<
+    "search" | "barcode" | null
+  >(null);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -202,21 +209,25 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Top Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] sm:text-xs font-semibold">
-              Ombor tannarxi
-            </span>
-            <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+      <div
+        className={`${isAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"} grid gap-2.5 sm:gap-4`}
+      >
+        {isAdmin && (
+          <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] sm:text-xs font-semibold">
+                Ombor tannarxi
+              </span>
+              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+            </div>
+            <div className="text-sm sm:text-xl font-black text-slate-900 leading-tight">
+              {formatPrice(totalCostValue)}
+            </div>
+            <p className="text-[10px] text-slate-400 hidden sm:block">
+              Jami xarid qiymati
+            </p>
           </div>
-          <div className="text-sm sm:text-xl font-black text-slate-900 leading-tight">
-            {formatPrice(totalCostValue)}
-          </div>
-          <p className="text-[10px] text-slate-400 hidden sm:block">
-            Jami xarid qiymati
-          </p>
-        </div>
+        )}
 
         <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-400">
@@ -233,20 +244,22 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
           </p>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] sm:text-xs font-semibold">
-              Kutilayotgan foyda
-            </span>
-            <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+        {isAdmin && (
+          <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] sm:text-xs font-semibold">
+                Kutilayotgan foyda
+              </span>
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+            </div>
+            <div className="text-sm sm:text-xl font-black text-emerald-600 leading-tight">
+              +{formatPrice(totalProfitValue)}
+            </div>
+            <p className="text-[10px] text-slate-400 hidden sm:block">
+              Sof marja
+            </p>
           </div>
-          <div className="text-sm sm:text-xl font-black text-emerald-600 leading-tight">
-            +{formatPrice(totalProfitValue)}
-          </div>
-          <p className="text-[10px] text-slate-400 hidden sm:block">
-            Sof marja
-          </p>
-        </div>
+        )}
 
         <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-400">
@@ -275,8 +288,16 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
               placeholder="Tovar nomi yoki shtrix-kod..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-rose-500 shadow-xs"
+              className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-11 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-rose-500 shadow-xs"
             />
+            <button
+              type="button"
+              onClick={() => setScannerTarget("search")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+              title="Shtrix-kodni skanerlash"
+            >
+              <ScanLine className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Category Dropdown */}
@@ -293,15 +314,16 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
           </select>
         </div>
 
-        {/* Add Product Button */}
-        <button
-          type="button"
-          onClick={() => handleOpenAdd()}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold px-4 py-2.5 rounded-2xl text-xs sm:text-sm shadow-sm transition active:scale-95 cursor-pointer"
-        >
-          <PackagePlus className="w-4 h-4" />
-          <span>Yangi tovar qo'shish</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => handleOpenAdd()}
+            className="flex items-center justify-center gap-2 bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold px-4 py-2.5 rounded-2xl text-xs sm:text-sm shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <PackagePlus className="w-4 h-4" />
+            <span>Yangi tovar qo'shish</span>
+          </button>
+        )}
       </div>
 
       {/* 1. MOBILE CARDS VIEW (md:hidden - Optimized for Phones) */}
@@ -349,25 +371,31 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
               </div>
 
               {/* Price & Profit Row */}
-              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl text-center text-xs">
-                <div>
-                  <div className="text-[10px] text-slate-400">Tannarxi:</div>
-                  <div className="font-semibold text-slate-700">
-                    {formatPrice(item.costPrice)}
+              <div
+                className={`${isAdmin ? "grid-cols-3" : "grid-cols-1"} grid gap-2 bg-slate-50 p-2 rounded-xl text-center text-xs`}
+              >
+                {isAdmin && (
+                  <div>
+                    <div className="text-[10px] text-slate-400">Tannarxi:</div>
+                    <div className="font-semibold text-slate-700">
+                      {formatPrice(item.costPrice)}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div>
                   <div className="text-[10px] text-slate-400">Sotish:</div>
                   <div className="font-black text-rose-600">
                     {formatPrice(item.sellingPrice)}
                   </div>
                 </div>
-                <div>
-                  <div className="text-[10px] text-slate-400">Foyda:</div>
-                  <div className="font-bold text-emerald-600">
-                    +{formatPrice(profitPerItem)}
+                {isAdmin && (
+                  <div>
+                    <div className="text-[10px] text-slate-400">Foyda:</div>
+                    <div className="font-bold text-emerald-600">
+                      +{formatPrice(profitPerItem)}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Action buttons (Touch-friendly) */}
@@ -386,45 +414,49 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                     <span>Kirim qilish</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditPriceItem(item);
-                      setNewSellingPrice(item.sellingPrice.toString());
-                    }}
-                    className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold px-2.5 py-1.5 rounded-xl text-xs active:scale-95"
-                  >
-                    <Tag className="w-3.5 h-3.5" />
-                    <span>Narx</span>
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditPriceItem(item);
+                        setNewSellingPrice(item.sellingPrice.toString());
+                      }}
+                      className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold px-2.5 py-1.5 rounded-xl text-xs active:scale-95"
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      <span>Narx</span>
+                    </button>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAdd(item)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
-                    title="Tahrirlash"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `"${item.name}" tovarini o'chirishni tasdiqlaysizmi?`,
-                        )
-                      ) {
-                        onDeleteProduct(item.id);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
-                    title="O'chirish"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAdd(item)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
+                      title="Tahrirlash"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `"${item.name}" tovarini o'chirishni tasdiqlaysizmi?`,
+                          )
+                        ) {
+                          onDeleteProduct(item.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
+                      title="O'chirish"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -446,9 +478,9 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                 <th className="py-3 px-4">Tovar</th>
                 <th className="py-3 px-4">Kategoriya</th>
                 <th className="py-3 px-4">Qoldiq</th>
-                <th className="py-3 px-4">Tannarxi</th>
+                {isAdmin && <th className="py-3 px-4">Tannarxi</th>}
                 <th className="py-3 px-4">Sotish narxi</th>
-                <th className="py-3 px-4">Foyda</th>
+                {isAdmin && <th className="py-3 px-4">Foyda</th>}
                 <th className="py-3 px-4 text-right">Amallar</th>
               </tr>
             </thead>
@@ -506,30 +538,36 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 font-medium text-slate-600">
-                      {formatPrice(item.costPrice)}
-                    </td>
+                    {isAdmin && (
+                      <td className="py-3 px-4 font-medium text-slate-600">
+                        {formatPrice(item.costPrice)}
+                      </td>
+                    )}
 
                     <td className="py-3 px-4 font-black text-slate-900">
                       <div className="flex items-center gap-1.5">
                         <span>{formatPrice(item.sellingPrice)}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditPriceItem(item);
-                            setNewSellingPrice(item.sellingPrice.toString());
-                          }}
-                          className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                          title="Narxni o'zgartirish"
-                        >
-                          <Tag className="w-3.5 h-3.5 text-amber-500" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditPriceItem(item);
+                              setNewSellingPrice(item.sellingPrice.toString());
+                            }}
+                            className="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                            title="Narxni o'zgartirish"
+                          >
+                            <Tag className="w-3.5 h-3.5 text-amber-500" />
+                          </button>
+                        )}
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 font-bold text-emerald-600">
-                      +{formatPrice(profitPerItem)}
-                    </td>
+                    {isAdmin && (
+                      <td className="py-3 px-4 font-bold text-emerald-600">
+                        +{formatPrice(profitPerItem)}
+                      </td>
+                    )}
 
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -547,31 +585,35 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                           <span>Kirim</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAdd(item)}
-                          className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition cursor-pointer"
-                          title="Tahrirlash"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAdd(item)}
+                              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition cursor-pointer"
+                              title="Tahrirlash"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `"${item.name}" tovarini o'chirishni tasdiqlaysizmi?`,
-                              )
-                            ) {
-                              onDeleteProduct(item.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                          title="O'chirish"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `"${item.name}" tovarini o'chirishni tasdiqlaysizmi?`,
+                                  )
+                                ) {
+                                  onDeleteProduct(item.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                              title="O'chirish"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -632,15 +674,25 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Shtrix-kod / Artikul
                   </label>
-                  <input
-                    type="text"
-                    placeholder="47800..."
-                    value={formData.barcode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, barcode: e.target.value })
-                    }
-                    className="w-full bg-slate-50 border border-slate-300 focus:border-rose-500 rounded-xl px-3 py-2 text-xs sm:text-sm outline-none font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ixtiyoriy"
+                      value={formData.barcode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, barcode: e.target.value })
+                      }
+                      className="w-full bg-slate-50 border border-slate-300 focus:border-rose-500 rounded-xl pl-3 pr-11 py-2 text-xs sm:text-sm outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setScannerTarget("barcode")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                      title="Shtrix-kodni skanerlash"
+                    >
+                      <ScanLine className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -765,7 +817,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                 <button
                   type="submit"
                   disabled={loadingAction}
-                  className="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold px-6 py-2 rounded-xl text-xs shadow-md transition disabled:opacity-50"
+                  className="flex items-center gap-2 bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold px-6 py-2 rounded-xl text-xs shadow-md transition disabled:opacity-50"
                 >
                   {loadingAction ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -826,18 +878,20 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Yangi tannarx (so'm, ixtiyoriy)
-                </label>
-                <input
-                  type="number"
-                  placeholder={restockItem.costPrice.toString()}
-                  value={newCost}
-                  onChange={(e) => setNewCost(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm outline-none"
-                />
-              </div>
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Yangi tannarx (so'm, ixtiyoriy)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={restockItem.costPrice.toString()}
+                    value={newCost}
+                    onChange={(e) => setNewCost(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              )}
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
@@ -928,6 +982,17 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {scannerTarget && (
+        <BarcodeScannerModal
+          onClose={() => setScannerTarget(null)}
+          onResult={(value) => {
+            if (scannerTarget === "search") setSearch(value);
+            else setFormData((previous) => ({ ...previous, barcode: value }));
+            setScannerTarget(null);
+          }}
+        />
       )}
     </div>
   );

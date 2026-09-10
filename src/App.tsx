@@ -341,6 +341,7 @@ export default function App() {
         {activeTab === "warehouse" && (
           <WarehouseView
             inventory={inventory}
+            isAdmin={currentUser.role === "admin"}
             onSaveProduct={handleSaveProduct}
             onRestock={handleRestock}
             onUpdatePrice={handleUpdatePrice}

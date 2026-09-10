@@ -30,7 +30,7 @@ export const TerminalLockOverlay: React.FC<TerminalLockOverlayProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950 text-white p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950 text-white p-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm text-center space-y-5"
