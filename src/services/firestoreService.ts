@@ -1,4 +1,11 @@
 import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  updatePassword,
+} from "firebase/auth";
+import {
   collection,
   getDoc,
   getDocs,
@@ -10,12 +17,27 @@ import {
   limit,
   writeBatch,
 } from "firebase/firestore";
-import { getFirestoreDB, isFirebaseConfigured } from "./firebase";
+import {
+  createSecondaryAuthUser,
+  getFirebaseAuth,
+  getFirestoreDB,
+  isFirebaseConfigured,
+} from "./firebase";
 import type { StaffUser, InventoryProduct, Sale, DebtRecord } from "../types";
 
 const KEYS = {
   CURRENT_USER: "market_erp_current_user",
 };
+
+export function phoneToVirtualEmail(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const normalized =
+    digits.startsWith("998") && digits.length === 12 ? digits.slice(3) : digits;
+  if (!/^\d{9}$/.test(normalized)) {
+    throw new Error("Telefon raqami aynan 9 raqamdan iborat bo'lishi kerak.");
+  }
+  return `${normalized}@marketcom.local`;
+}
 
 function requireFirestore() {
   if (!isFirebaseConfigured()) {
@@ -55,6 +77,86 @@ export function setCurrentUser(user: StaffUser | null): void {
   }
 }
 
+export async function signInStaff(
+  phone: string,
+  password: string,
+): Promise<StaffUser> {
+  const auth = getFirebaseAuth();
+  const credential = await signInWithEmailAndPassword(
+    auth,
+    phoneToVirtualEmail(phone),
+    password,
+  );
+  const profile = await getDoc(
+    doc(getFirestoreDBOrThrow(), "staff", credential.user.uid),
+  );
+  if (!profile.exists()) {
+    await signOut(auth);
+    throw new Error("Bu hisob uchun staff profili topilmadi.");
+  }
+
+  const staff = profile.data() as StaffUser;
+  if (!staff.isActive) {
+    await signOut(auth);
+    throw new Error("Bu xodim hisobi bloklangan.");
+  }
+
+  const authenticatedStaff = { ...staff, id: credential.user.uid };
+  setCurrentUser(authenticatedStaff);
+  return authenticatedStaff;
+}
+
+export async function getAuthenticatedStaff(): Promise<StaffUser | null> {
+  const auth = getFirebaseAuth();
+  if (!auth.currentUser) return null;
+
+  const profile = await getDoc(
+    doc(getFirestoreDBOrThrow(), "staff", auth.currentUser.uid),
+  );
+  if (!profile.exists()) {
+    await signOut(auth);
+    throw new Error("Bu hisob uchun staff profili topilmadi.");
+  }
+
+  const staff = { ...(profile.data() as StaffUser), id: auth.currentUser.uid };
+  if (!staff.isActive) {
+    await signOut(auth);
+    throw new Error("Bu xodim hisobi bloklangan.");
+  }
+  setCurrentUser(staff);
+  return staff;
+}
+
+export async function signOutStaff(): Promise<void> {
+  await signOut(getFirebaseAuth());
+  setCurrentUser(null);
+}
+
+export async function changeStaffPassword(
+  phone: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("Faol Firebase sessiyasi topilmadi.");
+  if (newPassword.length < 6)
+    throw new Error("Yangi parol kamida 6 belgidan iborat bo'lishi kerak.");
+
+  const credential = EmailAuthProvider.credential(
+    phoneToVirtualEmail(phone),
+    currentPassword,
+  );
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+}
+
+function getFirestoreDBOrThrow() {
+  const db = getFirestoreDB();
+  if (!db) throw new Error("Firestore ulanishi mavjud emas.");
+  return db;
+}
+
 export async function fetchStaffList(): Promise<StaffUser[]> {
   const snap = await getDocs(collection(requireFirestore(), "staff"));
   return snap.docs.map((d) => d.data() as StaffUser);
@@ -64,18 +166,37 @@ export async function saveStaffUser(user: StaffUser): Promise<void> {
   await setDoc(doc(requireFirestore(), "staff", user.id), user);
 }
 
-export async function deleteStaffUser(id: string): Promise<void> {
-  await deleteDoc(doc(requireFirestore(), "staff", id));
+export async function provisionStaffUser(
+  profile: Omit<StaffUser, "id" | "createdAt">,
+  password: string,
+): Promise<StaffUser> {
+  const email = phoneToVirtualEmail(profile.phone);
+  if (password.length < 6) {
+    throw new Error("Parol kamida 6 belgidan iborat bo'lishi kerak.");
+  }
+
+  const uid = await createSecondaryAuthUser(email, password);
+  const staff: StaffUser = {
+    ...profile,
+    id: uid,
+    createdAt: Date.now(),
+  };
+
+  try {
+    await setDoc(doc(requireFirestore(), "staff", uid), staff);
+  } catch (error) {
+    throw new Error(
+      `Firebase Auth hisob yaratildi, lekin staff profili saqlanmadi. UID: ${uid}. ${
+        error instanceof Error ? error.message : "Firestore xatosi"
+      }`,
+    );
+  }
+
+  return staff;
 }
 
-export async function loginWithPin(pin: string): Promise<StaffUser | null> {
-  const staff = await fetchStaffList();
-  const found = staff.find((u) => u.pin === pin.trim() && u.isActive);
-  if (found) {
-    setCurrentUser(found);
-    return found;
-  }
-  return null;
+export async function deleteStaffUser(id: string): Promise<void> {
+  await deleteDoc(doc(requireFirestore(), "staff", id));
 }
 
 // ----------------------------------------------------------------------

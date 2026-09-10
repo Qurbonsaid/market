@@ -6,11 +6,14 @@ import { WarehouseView } from "./components/WarehouseView";
 import { DebtsView } from "./components/DebtsView";
 import { DashboardView } from "./components/DashboardView";
 import { StaffManagementModal } from "./components/StaffManagementModal";
+import { TerminalLockOverlay } from "./components/TerminalLockOverlay";
+import { ProfileView } from "./components/ProfileView";
 import PWABadge from "./PWABadge";
 import {
   fetchStaffList,
-  getCurrentUser,
   setCurrentUser as persistCurrentUser,
+  getAuthenticatedStaff,
+  signOutStaff,
   fetchInventory,
   fetchSales,
   fetchDebts,
@@ -21,9 +24,16 @@ import {
   recordSale,
   payDebt,
   saveStaffUser,
+  provisionStaffUser,
   deleteStaffUser,
   type NewSalePayload,
 } from "./services/firestoreService";
+import { getFirebaseAuth } from "./services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  isTerminalLocked,
+  setTerminalLocked,
+} from "./services/terminalPinService";
 import type {
   StaffUser,
   InventoryProduct,
@@ -34,9 +44,7 @@ import type {
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 export default function App() {
-  const [currentUser, setCurrentUserState] = useState<StaffUser | null>(() =>
-    getCurrentUser(),
-  );
+  const [currentUser, setCurrentUserState] = useState<StaffUser | null>(null);
 
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
@@ -49,7 +57,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>("pos");
 
   // Modals
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [isTerminalLockedState, setIsTerminalLockedState] = useState(false);
 
   // PWA Install Prompt
   const [installPrompt, setInstallPrompt] =
@@ -98,21 +106,6 @@ export default function App() {
       setInventory(invData);
       setSales(salesData);
       setDebts(debtsData);
-
-      // Verify currentUser is still active in staffData
-      const savedUser = getCurrentUser();
-      if (savedUser) {
-        const found = staffData.find(
-          (u) => u.id === savedUser.id && u.isActive,
-        );
-        if (found) {
-          setCurrentUserState(found);
-          persistCurrentUser(found);
-        } else {
-          setCurrentUserState(null);
-          persistCurrentUser(null);
-        }
-      }
     } catch (err) {
       const message =
         err instanceof Error
@@ -126,19 +119,51 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    try {
+      return onAuthStateChanged(getFirebaseAuth(), async (firebaseUser) => {
+        if (!firebaseUser) {
+          setCurrentUserState(null);
+          setLoading(false);
+          return;
+        }
+        try {
+          const staff = await getAuthenticatedStaff();
+          if (staff) {
+            setCurrentUserState(staff);
+            setIsTerminalLockedState(isTerminalLocked());
+            await loadData();
+          }
+        } catch (err) {
+          setDataError(
+            err instanceof Error
+              ? err.message
+              : "Sessiyani tekshirib bo'lmadi.",
+          );
+          setLoading(false);
+        }
+      });
+    } catch (err) {
+      setDataError(
+        err instanceof Error ? err.message : "Firebase sozlanmagan.",
+      );
+      setLoading(false);
+    }
   }, [loadData]);
 
   // Login handler
-  const handleLogin = (user: StaffUser) => {
+  const handleLogin = async (user: StaffUser) => {
     setCurrentUserState(user);
     persistCurrentUser(user);
+    await loadData();
     showToast(`Xush kelibsiz, ${user.name}!`);
   };
 
   // Logout handler
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Tizimdan chiqishni tasdiqlaysizmi?")) {
+      await signOutStaff();
+      setTerminalLocked(false);
+      setIsTerminalLockedState(false);
       setCurrentUserState(null);
       persistCurrentUser(null);
       showToast("Tizimdan chiqildi");
@@ -215,11 +240,31 @@ export default function App() {
     showToast("Xodim ma'lumotlari saqlandi!");
   };
 
+  const handleCreateStaff = async (
+    profile: Omit<StaffUser, "id" | "createdAt">,
+    password: string,
+  ) => {
+    await provisionStaffUser(profile, password);
+    const staffUpdated = await fetchStaffList();
+    setStaffList(staffUpdated);
+    showToast("Xodim Auth va Firestore'da yaratildi!");
+  };
+
   const handleDeleteStaff = async (id: string) => {
     await deleteStaffUser(id);
     const staffUpdated = await fetchStaffList();
     setStaffList(staffUpdated);
     showToast("Xodim tizimdan o'chirildi");
+  };
+
+  const handleLock = () => {
+    setTerminalLocked(true);
+    setIsTerminalLockedState(true);
+  };
+
+  const handleUnlock = () => {
+    setTerminalLocked(false);
+    setIsTerminalLockedState(false);
   };
 
   // Badges calculation
@@ -244,11 +289,7 @@ export default function App() {
   if (!currentUser) {
     return (
       <>
-        <AuthScreen
-          staffList={staffList}
-          onLogin={handleLogin}
-          dataError={dataError}
-        />
+        <AuthScreen onLogin={handleLogin} dataError={dataError} />
         <PWABadge />
       </>
     );
@@ -261,8 +302,9 @@ export default function App() {
         currentUser={currentUser}
         activeTab={activeTab}
         onSelectTab={(tab) => setActiveTab(tab)}
-        onOpenStaffModal={() => setIsStaffModalOpen(true)}
-        onLogout={handleLogout}
+        onOpenStaffModal={() => setActiveTab("staff")}
+        onOpenProfile={() => setActiveTab("profile")}
+        onLock={handleLock}
         installPrompt={installPrompt}
         onInstallApp={handleInstallApp}
         lowStockCount={lowStockCount}
@@ -271,6 +313,23 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-6 pb-24 md:pb-8 flex-1 w-full">
+        {activeTab === "profile" && (
+          <ProfileView
+            currentUser={currentUser}
+            onBack={() => setActiveTab("pos")}
+            onLogout={handleLogout}
+            onLock={handleLock}
+          />
+        )}
+        {activeTab === "staff" && currentUser.role === "admin" && (
+          <StaffManagementModal
+            staffList={staffList}
+            onClose={() => setActiveTab("pos")}
+            onSaveStaff={handleSaveStaff}
+            onCreateStaff={handleCreateStaff}
+            onDeleteStaff={handleDeleteStaff}
+          />
+        )}
         {activeTab === "pos" && (
           <SalesPOSView
             inventory={inventory}
@@ -308,13 +367,11 @@ export default function App() {
         )}
       </main>
 
-      {/* Admin Only: Staff Management Modal */}
-      {isStaffModalOpen && currentUser.role === "admin" && (
-        <StaffManagementModal
-          staffList={staffList}
-          onClose={() => setIsStaffModalOpen(false)}
-          onSaveStaff={handleSaveStaff}
-          onDeleteStaff={handleDeleteStaff}
+      {isTerminalLockedState && (
+        <TerminalLockOverlay
+          user={currentUser}
+          onUnlock={handleUnlock}
+          onSignOut={handleLogout}
         />
       )}
 

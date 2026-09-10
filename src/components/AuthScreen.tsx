@@ -1,231 +1,153 @@
-import React, { useEffect, useState } from "react";
-import { Lock, ShieldCheck, UserCheck, Delete, ArrowRight } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowRight, KeyRound, Lock, ShieldCheck } from "lucide-react";
 import type { StaffUser } from "../types";
+import { signInStaff } from "../services/firestoreService";
+import {
+  hasTerminalPin,
+  normalizeTerminalPin,
+  setTerminalPin,
+} from "../services/terminalPinService";
 
 interface AuthScreenProps {
-  staffList: StaffUser[];
-  onLogin: (user: StaffUser) => void;
+  onLogin: (user: StaffUser) => Promise<void>;
   dataError?: string | null;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
-  staffList,
   onLogin,
   dataError,
 }) => {
-  const [selectedUser, setSelectedUser] = useState<StaffUser | null>(
-    staffList[0] || null,
-  );
-  const [pin, setPin] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [terminalPin, setTerminalPinValue] = useState("");
+  const [pendingUser, setPendingUser] = useState<StaffUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!selectedUser && staffList.length > 0) {
-      setSelectedUser(staffList.find((user) => user.isActive) || null);
-    }
-  }, [selectedUser, staffList]);
-
-  const handleKeyPress = (num: string) => {
-    if (pin.length < 6) {
-      setError(null);
-      setPin((prev) => prev + num);
-    }
-  };
-
-  const handleDelete = () => {
-    setPin((prev) => prev.slice(0, -1));
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
-  };
-
-  const handleClear = () => {
-    setPin("");
-    setError(null);
-  };
-
-  const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!selectedUser) {
-      setError("Iltimos, xodimni tanlang");
-      return;
+    setLoading(true);
+    try {
+      const user = await signInStaff(phone, password);
+      if (hasTerminalPin(user.id)) await onLogin(user);
+      else setPendingUser(user);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Tizimga kirishda xatolik yuz berdi.",
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (selectedUser.pin === pin.trim()) {
-      onLogin(selectedUser);
-    } else {
-      setError("PIN-kod noto'g'ri. Qayta urinib ko'ring.");
-      setPin("");
+  const handleTerminalPinSetup = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pendingUser) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await setTerminalPin(pendingUser.id, terminalPin);
+      await onLogin(pendingUser);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Terminal PIN-kodini saqlab bo'lmadi.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 text-white select-none">
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        {/* App Logo & Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-2xl bg-linear-to-tr from-slate-900 to-slate-800 ring-1 ring-white/10 shadow-lg mb-1">
-            <img
-              src="/favicon.svg"
-              alt="Market Logosi"
-              className="w-12 h-12 object-contain"
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 text-white">
+      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        <div className="text-center space-y-2 mb-7">
+          <div className="inline-flex p-3 rounded-2xl bg-slate-800 ring-1 ring-white/10">
+            <ShieldCheck className="w-8 h-8 text-rose-400" />
+          </div>
+          <h1 className="text-2xl font-black">Market Boshqaruv</h1>
+          <p className="text-xs text-slate-400">Xavfsiz xodim kirishi</p>
+        </div>
+
+        {pendingUser ? (
+          <form onSubmit={handleTerminalPinSetup} className="space-y-5">
+            <div className="text-center space-y-2">
+              <KeyRound className="w-8 h-8 mx-auto text-amber-400" />
+              <h2 className="font-bold">Terminal PIN-kodini yarating</h2>
+              <p className="text-xs text-slate-400">
+                Bu PIN faqat shu qurilmada saqlanadi va Firebase'ga
+                yuborilmaydi.
+              </p>
+            </div>
+            <input
+              autoFocus
+              inputMode="numeric"
+              maxLength={4}
+              type="password"
+              value={terminalPin}
+              onChange={(event) =>
+                setTerminalPinValue(normalizeTerminalPin(event.target.value))
+              }
+              placeholder="4 raqam"
+              className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-center text-xl tracking-[0.5em] outline-none focus:border-rose-500"
             />
-          </div>
-          <h1 className="text-2xl font-black tracking-tight bg-linear-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
-            Market Boshqaruv
-          </h1>
-          <p className="text-xs text-slate-400">
-            Kassa, Omborxona va Savdo Tizimiga kirish
-          </p>
-        </div>
-
-        {/* User Selection */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-            Foydalanuvchi / Xodimni tanlang:
-          </label>
-          <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-1">
-            {dataError && (
-              <p className="text-xs text-center text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
-                {dataError}
+            {(error || dataError) && (
+              <p className="text-xs text-center text-rose-400">
+                {error || dataError}
               </p>
             )}
-            {!dataError && staffList.filter((u) => u.isActive).length === 0 && (
-              <p className="text-xs text-center text-slate-400 bg-slate-800/60 border border-slate-700/60 rounded-xl p-3">
-                Faol xodimlar topilmadi. Firebase'da staff kolleksiyasini
-                sozlang.
-              </p>
-            )}
-            {staffList
-              .filter((u) => u.isActive)
-              .map((u) => {
-                const isSelected = selectedUser?.id === u.id;
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedUser(u);
-                      setPin("");
-                      setError(null);
-                    }}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition text-left ${
-                      isSelected
-                        ? "bg-rose-500/20 border-rose-500 text-white shadow-sm shadow-rose-500/20"
-                        : "bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                          u.role === "admin"
-                            ? "bg-rose-500 text-white"
-                            : "bg-slate-700 text-slate-200"
-                        }`}
-                      >
-                        {u.role === "admin" ? (
-                          <ShieldCheck className="w-4 h-4" />
-                        ) : (
-                          <UserCheck className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold">{u.name}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {u.role === "admin" ? "Admin" : "Sotuvchi"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    )}
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-
-        {/* PIN Input Display */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 text-center">
-            PIN-kodni kiriting:
-          </label>
-          <div className="flex justify-center items-center gap-3 py-2">
-            {[0, 1, 2, 3].map((idx) => {
-              const hasChar = pin.length > idx;
-              return (
-                <div
-                  key={idx}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${
-                    hasChar
-                      ? "bg-rose-500/20 border-rose-500 text-rose-400 scale-105"
-                      : "bg-slate-800/80 border-slate-700 text-slate-600"
-                  }`}
-                >
-                  {hasChar ? (
-                    <div className="w-3.5 h-3.5 rounded-full bg-rose-400" />
-                  ) : (
-                    <Lock className="w-4 h-4 opacity-30" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {error && (
-            <p className="text-xs text-center font-semibold text-rose-400 animate-shake">
-              {error}
-            </p>
-          )}
-        </div>
-
-        {/* Numeric Keypad */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-xs mx-auto">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
             <button
-              key={num}
-              type="button"
-              onClick={() => handleKeyPress(num)}
-              className="h-12 sm:h-14 rounded-2xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-lg font-bold text-white shadow-xs transition active:scale-95 flex items-center justify-center cursor-pointer"
+              type="submit"
+              disabled={loading || terminalPin.length !== 4}
+              className="w-full bg-linear-to-r from-rose-500 to-orange-500 text-white font-bold py-3.5 rounded-2xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {num}
+              Saqlash va davom etish <ArrowRight className="w-4 h-4" />
             </button>
-          ))}
-
-          <button
-            type="button"
-            onClick={handleClear}
-            className="h-12 sm:h-14 rounded-2xl bg-slate-800/50 hover:bg-slate-800 text-xs font-bold text-slate-400 transition active:scale-95 flex items-center justify-center cursor-pointer"
-          >
-            Tozalash
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleKeyPress("0")}
-            className="h-12 sm:h-14 rounded-2xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-lg font-bold text-white shadow-xs transition active:scale-95 flex items-center justify-center cursor-pointer"
-          >
-            0
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="h-12 sm:h-14 rounded-2xl bg-slate-800/50 hover:bg-slate-800 text-slate-300 transition active:scale-95 flex items-center justify-center cursor-pointer"
-          >
-            <Delete className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Enter Button */}
-        <button
-          type="button"
-          onClick={() => handleSubmit()}
-          disabled={pin.length < 4}
-          className="w-full bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-rose-500/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <span>Tizimga kirish</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label className="block text-xs font-bold text-slate-400">
+              Telefon raqami
+              <input
+                required
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="90 123 45 67"
+                className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-rose-500"
+              />
+            </label>
+            <label className="block text-xs font-bold text-slate-400">
+              Parol
+              <div className="relative mt-1.5">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  required
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-sm outline-none focus:border-rose-500"
+                />
+              </div>
+            </label>
+            {error && (
+              <p className="text-xs text-center text-rose-400">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-linear-to-r from-rose-500 to-orange-500 text-white font-bold py-3.5 rounded-2xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? "Tekshirilmoqda..." : "Tizimga kirish"}{" "}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

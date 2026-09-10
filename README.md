@@ -79,7 +79,9 @@ export default defineConfig([
     VITE_IMGCDN_ENDPOINT=https://imgcdn.dev/api/1/upload
     ```
 
-    Create the `staff`, `inventory`, `sales`, and `debts` collections in Firestore. Add the first active staff user to `staff` manually before the first login. No demo or seeded records are included.
+    Create the `staff`, `inventory`, `sales`, and `debts` collections in Firestore. The first administrator must be bootstrapped with an Email/Password Firebase Auth account using the virtual email `<9-digit-phone>@marketcom.local` and a `staff` document whose ID is that Auth UID. After signing in, administrators can create staff from the app: a secondary Firebase app creates the Auth account, then the primary Firestore connection writes `staff/{uid}` with `name`, `phone`, `role`, `isActive`, and `createdAt`. No demo or seeded records are included.
+
+    The app normalizes phone input to exactly nine digits before sign-in. Terminal PINs are SHA-256 hashed and stored only in that browser's local storage; they are never staff profile fields.
 
     Configure Firebase Authentication or equivalent server-side access controls before exposing the app publicly. Firestore security rules must restrict staff, inventory, sales, and debt access to authorized users.
 

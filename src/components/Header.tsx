@@ -6,20 +6,25 @@ import {
   BarChart3,
   Users,
   Download,
-  LogOut,
-  ShieldCheck,
-  UserCheck,
+  LockKeyhole,
 } from "lucide-react";
 import type { StaffUser, BeforeInstallPromptEvent } from "../types";
 
-export type ActiveNavTab = "pos" | "warehouse" | "debts" | "dashboard";
+export type ActiveNavTab =
+  | "pos"
+  | "warehouse"
+  | "debts"
+  | "dashboard"
+  | "profile"
+  | "staff";
 
 interface HeaderProps {
   currentUser: StaffUser;
   activeTab: ActiveNavTab;
   onSelectTab: (tab: ActiveNavTab) => void;
   onOpenStaffModal: () => void;
-  onLogout: () => void;
+  onOpenProfile: () => void;
+  onLock: () => void;
   installPrompt: BeforeInstallPromptEvent | null;
   onInstallApp: () => void;
   lowStockCount: number;
@@ -31,7 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onSelectTab,
   onOpenStaffModal,
-  onLogout,
+  onOpenProfile,
+  onLock,
   installPrompt,
   onInstallApp,
   lowStockCount,
@@ -151,39 +157,22 @@ export const Header: React.FC<HeaderProps> = ({
               )}
 
               {/* User Profile Badge */}
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-800/90 border border-slate-700/80 rounded-2xl py-1 px-2">
-                <div
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
-                    isAdmin
-                      ? "bg-rose-500 text-white"
-                      : "bg-slate-700 text-slate-200"
-                  }`}
-                >
-                  {isAdmin ? (
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                  ) : (
-                    <UserCheck className="w-3.5 h-3.5" />
-                  )}
-                </div>
-                <div className="text-left max-w-21.25 sm:max-w-30 truncate">
-                  <div className="text-[11px] sm:text-xs font-bold text-white leading-tight truncate">
-                    {currentUser.name}
-                  </div>
-                  <div className="text-[9px] text-slate-400 leading-none">
-                    {isAdmin ? "Admin" : "Sotuvchi"}
-                  </div>
-                </div>
-
-                {/* Logout Button */}
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition"
-                  title="Tizimdan chiqish / PIN almashtirish"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={onLock}
+                className="p-2 rounded-xl text-slate-300 hover:text-amber-300 hover:bg-slate-800 transition"
+                title="Terminalni qulflash"
+              >
+                <LockKeyhole className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenProfile}
+                className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-2xl py-2 px-3 text-xs font-bold text-white hover:bg-slate-700 transition max-w-40 truncate"
+                title="Profil"
+              >
+                <span className="truncate">{currentUser.name}</span>
+              </button>
             </div>
           </div>
         </div>

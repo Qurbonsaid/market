@@ -4,7 +4,6 @@ export interface StaffUser {
   id: string;
   name: string;
   phone: string;
-  pin: string; // 4-digit PIN for quick login on tablets/phones
   role: UserRole;
   isActive: boolean;
   createdAt: number;

@@ -1,4 +1,14 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import {
+  deleteApp,
+  initializeApp,
+  getApps,
+  type FirebaseApp,
+} from "firebase/app";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  type Auth,
+} from "firebase/auth";
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -28,13 +38,21 @@ export function getStoredFirebaseConfig(): FirebaseConfig | null {
   }
 
   // Check env variables
-  if (import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.VITE_FIREBASE_PROJECT_ID) {
+  if (
+    import.meta.env.VITE_FIREBASE_API_KEY &&
+    import.meta.env.VITE_FIREBASE_PROJECT_ID
+  ) {
     return {
       apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+      authDomain:
+        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+        `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+      storageBucket:
+        import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+        `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
+      messagingSenderId:
+        import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
       appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
     };
   }
@@ -53,6 +71,47 @@ export function clearStoredFirebaseConfig(): void {
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 
+export function getFirebaseApp(): FirebaseApp {
+  if (app) return app;
+
+  const config = getStoredFirebaseConfig();
+  if (!config || !config.apiKey || !config.projectId) {
+    throw new Error("Firebase sozlanmagan. Firebase sozlamalarini kiriting.");
+  }
+
+  app = getApps().length ? getApps()[0] : initializeApp(config);
+  return app;
+}
+
+export function getFirebaseAuth(): Auth {
+  return getAuth(getFirebaseApp());
+}
+
+export async function createSecondaryAuthUser(
+  email: string,
+  password: string,
+): Promise<string> {
+  const config = getStoredFirebaseConfig();
+  if (!config || !config.apiKey || !config.projectId) {
+    throw new Error("Firebase sozlanmagan. Firebase sozlamalarini kiriting.");
+  }
+
+  const secondaryApp = initializeApp(
+    config,
+    `staff-provision-${crypto.randomUUID()}`,
+  );
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      getAuth(secondaryApp),
+      email,
+      password,
+    );
+    return credential.user.uid;
+  } finally {
+    await deleteApp(secondaryApp);
+  }
+}
+
 export function getFirestoreDB(): Firestore | null {
   if (db) return db;
 
@@ -62,11 +121,7 @@ export function getFirestoreDB(): Firestore | null {
   }
 
   try {
-    if (!getApps().length) {
-      app = initializeApp(config);
-    } else {
-      app = getApps()[0];
-    }
+    app = getFirebaseApp();
 
     // Firestore Free Tier optimization: Offline persistence with persistentMultipleTabManager
     // Saves Firestore daily read quota by caching previously queried documents locally!

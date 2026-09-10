@@ -1,15 +1,14 @@
 import React, { useState } from "react";
 import {
-  X,
-  UserPlus,
   ShieldCheck,
   UserCheck,
-  Lock,
   Phone,
   Trash2,
   AlertCircle,
   Loader2,
   Edit2,
+  UserPlus,
+  ArrowLeft,
 } from "lucide-react";
 import type { StaffUser, UserRole } from "../types";
 
@@ -17,6 +16,10 @@ interface StaffManagementModalProps {
   staffList: StaffUser[];
   onClose: () => void;
   onSaveStaff: (user: StaffUser) => Promise<void>;
+  onCreateStaff: (
+    profile: Omit<StaffUser, "id" | "createdAt">,
+    password: string,
+  ) => Promise<void>;
   onDeleteStaff: (id: string) => Promise<void>;
 }
 
@@ -24,6 +27,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   staffList,
   onClose,
   onSaveStaff,
+  onCreateStaff,
   onDeleteStaff,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -31,32 +35,32 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("+998");
-  const [pin, setPin] = useState("");
   const [role, setRole] = useState<UserRole>("staff");
   const [isActive, setIsActive] = useState(true);
+  const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleOpenAdd = () => {
-    setIsEditing(true);
-    setEditingId(null);
-    setName("");
-    setPhone("+998");
-    setPin("");
-    setRole("staff");
-    setIsActive(true);
-    setError(null);
-  };
 
   const handleOpenEdit = (st: StaffUser) => {
     setIsEditing(true);
     setEditingId(st.id);
     setName(st.name);
     setPhone(st.phone);
-    setPin(st.pin);
     setRole(st.role);
     setIsActive(st.isActive);
+    setPassword("");
+    setError(null);
+  };
+
+  const handleOpenAdd = () => {
+    setIsEditing(true);
+    setEditingId(null);
+    setName("");
+    setPhone("");
+    setRole("staff");
+    setIsActive(true);
+    setPassword("");
     setError(null);
   };
 
@@ -68,25 +72,20 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
       setError("Iltimos, xodim ismini kiriting");
       return;
     }
-
-    if (!pin.trim() || pin.length < 4) {
-      setError("PIN-kod kamida 4 xonali bo'lishi kerak");
-      return;
-    }
-
     setLoading(true);
     try {
-      const user: StaffUser = {
-        id: editingId || "staff-" + Date.now(),
+      const profile = {
         name: name.trim(),
-        phone: phone.trim(),
-        pin: pin.trim(),
+        phone,
         role,
         isActive,
-        createdAt: Date.now(),
       };
 
-      await onSaveStaff(user);
+      if (editingId) {
+        await onSaveStaff({ ...profile, id: editingId, createdAt: Date.now() });
+      } else {
+        await onCreateStaff(profile, password);
+      }
       setIsEditing(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Xodimni saqlashda xato";
@@ -107,8 +106,8 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white w-full rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-2">
@@ -118,9 +117,10 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-white"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
+            Ortga
           </button>
         </div>
 
@@ -197,27 +197,26 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                     className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:border-rose-500"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Kirish PIN-kodi (4 xonali) *
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                {!editingId && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Vaqtinchalik parol *
+                    </label>
                     <input
-                      type="text"
+                      type="password"
                       required
-                      maxLength={6}
-                      placeholder="1234"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-xs outline-none focus:border-rose-500 font-mono font-bold"
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Kamida 6 belgi"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:border-rose-500"
                     />
                   </div>
-                </div>
+                )}
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
                     Rol *
