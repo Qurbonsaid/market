@@ -31,6 +31,7 @@ import {
 import { getFirebaseAuth } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
+  hasTerminalPin,
   isTerminalLocked,
   setTerminalLocked,
 } from "./services/terminalPinService";
@@ -258,6 +259,14 @@ export default function App() {
   };
 
   const handleLock = () => {
+    // Check if hasTerminalPin and if not, navigate to profile to set it up
+    if (!hasTerminalPin(currentUser!.id)) {
+      alert(
+        "Terminalni qulflash uchun avval profil sozlamalarida PIN kodni o'rnating.",
+      );
+      setActiveTab("profile");
+      return;
+    }
     setTerminalLocked(true);
     setIsTerminalLockedState(true);
   };
