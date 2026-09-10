@@ -187,9 +187,10 @@ export async function recordSale(payload: NewSalePayload): Promise<Sale> {
     staffId: payload.staffId,
     staffName: payload.staffName,
     createdAt: now,
-    customerName: payload.customerName,
-    customerPhone: payload.customerPhone,
   };
+
+  if (payload.customerName) sale.customerName = payload.customerName;
+  if (payload.customerPhone) sale.customerPhone = payload.customerPhone;
 
   const inventorySnapshot = await getDocs(collection(db, "inventory"));
   const inventory = inventorySnapshot.docs.map(
@@ -222,7 +223,6 @@ export async function recordSale(payload: NewSalePayload): Promise<Sale> {
       totalAmount,
       paidAmount: paidNow,
       remainingAmount: remaining,
-      dueDate: payload.debtDueDate,
       status: remaining === 0 ? "yopildi" : "kutilmoqda",
       staffId: payload.staffId,
       staffName: payload.staffName,
@@ -240,6 +240,8 @@ export async function recordSale(payload: NewSalePayload): Promise<Sale> {
             ]
           : [],
     };
+    if (payload.debtDueDate) debt.dueDate = payload.debtDueDate;
+    if (payload.debtNotes) debt.notes = payload.debtNotes;
   }
 
   const batch = writeBatch(db);
