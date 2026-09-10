@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center justify-between gap-2 sm:gap-3">
             {/* Logo & Brand */}
             <div className="flex items-center gap-2 select-none">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-gradient-to-tr from-slate-950 to-slate-800 p-1 ring-1 ring-white/10 shadow-md shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-linear-to-tr from-slate-950 to-slate-800 p-1 ring-1 ring-white/10 shadow-md shrink-0">
                 <img
                   src="/favicon.svg"
                   alt="Market Logosi"
@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               </div>
               <div>
-                <div className="text-base sm:text-lg font-black tracking-tight leading-none bg-gradient-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
+                <div className="text-base sm:text-lg font-black tracking-tight leading-none bg-linear-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
                   Market ERP
                 </div>
                 <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium tracking-wider uppercase">
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
                     onClick={() => onSelectTab(item.id)}
                     className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       isActive
-                        ? "bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-xs shadow-rose-500/25"
+                        ? "bg-linear-to-r from-rose-500 to-orange-500 text-white shadow-xs shadow-rose-500/25"
                         : "text-slate-300 hover:text-white hover:bg-slate-700/60"
                     }`}
                   >
@@ -216,7 +216,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenStaffModal}
-              className="relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-rose-300 font-medium transition cursor-pointer min-w-[56px]"
+              className="relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-rose-300 font-medium transition cursor-pointer min-w-14"
             >
               <Users className="w-5 h-5" />
               <span className="text-[10px] mt-1 tracking-tight">Xodimlar</span>

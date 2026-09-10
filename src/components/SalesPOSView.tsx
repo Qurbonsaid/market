@@ -278,7 +278,7 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="font-black px-2 min-w-[24px] text-center text-xs">
+                <span className="font-black px-2 min-w-6 text-center text-xs">
                   {item.quantity}
                 </span>
                 <button
@@ -498,7 +498,7 @@ export const SalesPOSView: React.FC<SalesPOSViewProps> = ({
             type="button"
             disabled={processing || cart.length === 0}
             onClick={handleFinishSale}
-            className="w-full bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-rose-500/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-rose-500/25 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             {processing ? (
               <span>Kassadan o'tkazilmoqda...</span>
